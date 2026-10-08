@@ -155,7 +155,7 @@ const cfg_field_t g_cfg_fields[CFG_COUNT] = {
                              "first, which only stops you doing this by accident." },
   [CFG_WEB_LOG]    = { .key="log.enable", .label="Enable web log", .group="System", .type=CF_BOOL,
                        .imin=0, .imax=1, .idef=0,
-                       .help="Mirrors serial logs to /log. Can use up to 16 KB of RAM when enabled.",
+                       .help="Mirrors serial logs to /log. Uses 8 KB of RAM when enabled.",
                        .reboot=true },
 
   [CFG_DISP_EN]    = { .key="disp.en", .label="Enable display", .group="Display", .type=CF_BOOL,

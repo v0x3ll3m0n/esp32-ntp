@@ -300,7 +300,7 @@ Every runtime setting, generated from the single table in
 | `stats.port` | int | `1`..`65535` | R | Management port. This page, /metrics, and /log when enabled. |
 | `ui.pass` | password |  |  | Management password. Blank leaves this page open to anyone on the network. |
 | `ui.lock` | bool | 0 / 1 |  | Lock settings permanently. One way. Saving this removes the settings page for good; only erasing  |
-| `log.enable` | bool | 0 / 1 | R | Enable the password-protected `/log` page after restart. Off by default; can use up to 16 KB of RAM when enabled. |
+| `log.enable` | bool | 0 / 1 | R | Enable the `/log` page after restart. Off by default; uses 8 KB of RAM when enabled. |
 
 #### Display
 
