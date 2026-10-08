@@ -38,8 +38,12 @@ static int hook(const char* fmt, va_list ap) {
   va_end(copy);
 
   if (n > 0) {
-    size_t len = (size_t)n < sizeof(line) ? (size_t)n : sizeof(line) - 1;
+    bool truncated = (size_t)n >= sizeof(line);
+    size_t len = truncated ? sizeof(line) - 1 : (size_t)n;
     len = strip(line, len);
+    // Keep the next log entry on a new line even when this one's newline was
+    // beyond the formatting buffer.
+    if (truncated && len > 0 && line[len - 1] != '\n') line[len - 1] = '\n';
     portENTER_CRITICAL(&s_lock);
     for (size_t i = 0; i < len; ++i) {
       s_ring[s_head] = line[i];
