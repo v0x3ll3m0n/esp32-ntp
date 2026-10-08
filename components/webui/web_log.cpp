@@ -9,7 +9,7 @@
 #include "freertos/FreeRTOS.h"
 
 static const size_t RING_SIZE = 8192;
-static const size_t LINE_MAX = 192;
+static const size_t LOG_LINE_MAX = 192;
 
 static char* s_ring = nullptr;
 static size_t s_head = 0;       // next write position
@@ -34,7 +34,7 @@ static size_t strip(char* s, size_t n) {
 static int hook(const char* fmt, va_list ap) {
   va_list copy;
   va_copy(copy, ap);
-  char line[LINE_MAX];
+  char line[LOG_LINE_MAX];
   int n = vsnprintf(line, sizeof(line), fmt, copy);
   va_end(copy);
 
