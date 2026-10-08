@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Unlicense
 
 #include "web_internal.h"
+#include "web_log.h"
 #include "config.h"
 #include "config_store.h"
 #include "gps.h"
@@ -379,6 +380,16 @@ void WebServer::handleConnection() {
 
   if (isGet && pathIs("/metrics")) {
     sendMetrics();
+    return;
+  }
+
+  if (isGet && pathIs("/log")) {
+    if (!authorized(req)) {
+      sendStatus("401 Unauthorized", "text/plain", "Authentication required");
+      return;
+    }
+    weblog_snapshot(g_resp, 8192 + 1);
+    sendStatus("200 OK", "text/plain; charset=utf-8", g_resp);
     return;
   }
 

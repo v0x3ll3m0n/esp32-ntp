@@ -246,7 +246,7 @@ void WebServer::sendConfigPage(const char* notice) {
     "<form method=post action=/factory-reset "
     "onsubmit=\"return confirm('Erase all stored settings and reboot?')\">"
     "<button class=sec type=submit>Erase stored settings</button></form>"
-    "<p class=st><a href=/metrics>/metrics</a></p>");
+    "<p class=st><a href=/metrics>/metrics</a> &middot; <a href=/log>/log</a></p>");
 
   int blen = (int)(p - g_resp);
   if (blen >= (int)sizeof(g_resp) - 1) blen = (int)sizeof(g_resp) - 1;

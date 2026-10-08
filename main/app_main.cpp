@@ -28,6 +28,7 @@
 #include "esp_task_wdt.h"
 #include "ntp_server.h"
 #include "web_server.h"
+#include "web_log.h"
 #include "w5500_eth.h"
 #include "wifi_sta.h"
 
@@ -237,6 +238,7 @@ static void rtc_task(void* arg) {
 }
 
 void app_main() {
+  weblog_install();
   uart_wait_tx_done(static_cast<uart_port_t>(CONFIG_ESP_CONSOLE_UART_NUM), pdMS_TO_TICKS(100));
   vTaskDelay(pdMS_TO_TICKS(500));
   
