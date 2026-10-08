@@ -1,10 +1,13 @@
 #pragma once
 // SPDX-License-Identifier: Unlicense
 #include <stddef.h>
+#include <stdbool.h>
 
-// Mirrors every ESP_LOG line into a RAM ring buffer, in addition to the UART.
-// Call once, as early as possible, so the boot log is captured too.
-void weblog_install(void);
+// Allocates the ring and mirrors ESP_LOG output, in addition to the UART.
+// Call only when the saved setting is enabled, after configuration is loaded.
+// Returns false if the ring could not be allocated; the log hook stays untouched.
+bool weblog_install(void);
+bool weblog_active(void);
 
 // Copies the buffered log (oldest first, whole lines only) into out as a
 // NUL-terminated string and returns its length.

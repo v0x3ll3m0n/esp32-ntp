@@ -238,7 +238,6 @@ static void rtc_task(void* arg) {
 }
 
 void app_main() {
-  weblog_install();
   uart_wait_tx_done(static_cast<uart_port_t>(CONFIG_ESP_CONSOLE_UART_NUM), pdMS_TO_TICKS(100));
   vTaskDelay(pdMS_TO_TICKS(500));
   
@@ -277,6 +276,8 @@ void app_main() {
     ESP_LOGI(TAG, "Start attempt %u since the last start that reached the network",
              (unsigned)attempt);
     Config::init(safeMode);
+    if (cfg_int(CFG_WEB_LOG) && !weblog_install())
+      ESP_LOGW(TAG, "Web log disabled: could not allocate RAM ring buffer");
     if (safeMode) {
       ESP_LOGE(TAG, "SAFE MODE on start attempt %u: build-time defaults, "
                     "stored settings ignored until you save from the config page",
