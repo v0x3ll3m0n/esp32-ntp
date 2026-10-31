@@ -264,6 +264,9 @@ private:
   volatile int64_t tcxoTickExt;
   volatile uint32_t tcxoCount;
   volatile uint32_t tcxoRawPub;      // newest 32k capture tick
+  volatile uint32_t tcxoLastGapTicks; // callback-to-callback gap, for diagnostics
+  volatile uint32_t tcxoMinGapTicks;
+  volatile uint32_t tcxoMaxGapTicks;
   uint32_t tcxoLastRaw;              // ISR-only
   bool tcxoTickInit;                 // ISR-only
   // 1 Hz snapshot ring
@@ -295,6 +298,9 @@ private:
   volatile double tcxoAvgPpm;        // integral / elapsed
   // PPS-vs-TCXO metric state
   bool tcxoPpsPrevValid;
+  uint32_t tcxoDiagPpsPrevCnt;
+  uint32_t tcxoDiagPpsPrevSec;
+  uint32_t tcxoDiagPpsSamples;
   uint32_t tcxoPpsPrevCnt;
   int32_t tcxoPpsPrevSub;
   uint32_t tcxoPpsPrevSec;
