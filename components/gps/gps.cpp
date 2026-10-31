@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include "esp_timer.h"
 #include "esp_log.h"
+#include "esp_idf_version.h"
 
 static const char* TAG = "GPS";
 
@@ -56,7 +57,16 @@ static const double  kFreqEwmaAlpha = 0.05;               // fit -> filtered fre
 static const double  kHoldoverDriftFloorPpmPerHour = 0.5; // never claim better than this
 
 /* DS3231 TCXO holdover constants. */
-static const uint32_t kTcxoPrescale = 256;   // real divisor calibrated at runtime
+static const uint32_t kTcxoPrescale = 256;   // desired input cycles per capture
+// ESP-IDF through v6.0.3 writes (prescale - 1) to the MCPWM register, whose
+// actual same-edge divisor is twice that value. Espressif fixed the mapping
+// upstream after v6.0.3 (espressif/esp-idf@f9398bd). Ask for 129 on those
+// releases to obtain the same 256-cycle divisor as the fixed driver.
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 4)
+static const uint32_t kTcxoDriverPrescale = kTcxoPrescale / 2 + 1;
+#else
+static const uint32_t kTcxoDriverPrescale = kTcxoPrescale;
+#endif
 static const double   kTcxoHoldoverFloorPpm = 0.05;        // never claim better than this
 // dispersion ceiling governs (~55 h)
 static const int64_t  kHoldoverMaxTcxoUs = 72LL * 3600LL * 1000000LL;
@@ -328,7 +338,7 @@ esp_err_t GpsDiscipline::beginTcxoCapture(int gpio) {
   if (gpio < 0 || capTimer == nullptr) return ESP_ERR_INVALID_ARG;
   mcpwm_capture_channel_config_t cfg = {};
   cfg.gpio_num = gpio;
-  cfg.prescale = kTcxoPrescale;
+  cfg.prescale = kTcxoDriverPrescale;
   // falling edge; rising ramps slowly
   cfg.flags.pos_edge = 0;
   cfg.flags.neg_edge = 1;
