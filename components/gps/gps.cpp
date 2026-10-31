@@ -91,14 +91,17 @@ GpsDiscipline::GpsDiscipline()
     capTimer(nullptr), capChannel(nullptr), rxCapChannel(nullptr),
     rxCapTick(0), rxCapSeq(0),
     tcxoCapChannel(nullptr), tcxoSeq(0), tcxoTickExt(0), tcxoCount(0),
-    tcxoRawPub(0), tcxoLastRaw(0), tcxoTickInit(false),
+    tcxoRawPub(0), tcxoLastGapTicks(0), tcxoMinGapTicks(UINT32_MAX),
+    tcxoMaxGapTicks(0), tcxoLastRaw(0), tcxoTickInit(false),
     tcxoRingHead(0), tcxoRingN(0), tcxoLastSnapUs(0),
     tcxoCyclesPerEvent(0), tcxoApbPerSec(0), tcxoRatioValid(false),
     rtcTempC(0), rtcTempUs(0),
     tcxoGlobalPpm(0), tcxoGlobalN(0), tcxoLiveErrPpm(0), tcxoResidualPpm(0),
     tcxoHoldoverPpm(0), tcxoHoldoverGood(false), tcxoCorrFromBin(false),
     tcxoHoldStartUs(0), tcxoHoldLastUs(0), tcxoHoldPpmSecIntegral(0), tcxoAvgPpm(0),
-    tcxoPpsPrevValid(false), tcxoPpsPrevCnt(0), tcxoPpsPrevSub(0),
+    tcxoPpsPrevValid(false), tcxoDiagPpsPrevCnt(0),
+    tcxoDiagPpsPrevSec(0), tcxoDiagPpsSamples(0),
+    tcxoPpsPrevCnt(0), tcxoPpsPrevSub(0),
     tcxoPpsPrevSec(0), tcxoPpsFreqInit(false), tcxoPpsFreqNsPerS(0),
     tcxoPpsDevNs(0), tcxoPpsRmsNs(0),
     tcxoFlywheelNs(0), tcxoFwSettle(0), tcxoFwValid(false),
@@ -313,6 +316,9 @@ bool IRAM_ATTR GpsDiscipline::tcxo_capture_callback(
   self->tcxoTickExt += d;
   self->tcxoCount = self->tcxoCount + 1;
   self->tcxoRawPub = raw;
+  self->tcxoLastGapTicks = (uint32_t)d;
+  if ((uint32_t)d < self->tcxoMinGapTicks) self->tcxoMinGapTicks = (uint32_t)d;
+  if ((uint32_t)d > self->tcxoMaxGapTicks) self->tcxoMaxGapTicks = (uint32_t)d;
   __sync_synchronize();
   self->tcxoSeq = self->tcxoSeq + 1;
   return false;
@@ -367,12 +373,12 @@ bool GpsDiscipline::tcxoCorrPpm(double& out, bool& fromBin) const {
 
 // PPS timestamped against TCXO ticks
 void GpsDiscipline::tcxoPpsSample(uint32_t ppsCapTick, uint32_t gpsSec) {
-  if (tcxoCapChannel == nullptr || !tcxoRatioValid) {
+  if (tcxoCapChannel == nullptr) {
     tcxoPpsPrevValid = false;
     tcxoFwValid = false;
     return;
   }
-  uint32_t cnt = 0, raw = 0, s;
+  uint32_t cnt = 0, raw = 0, lastGap = 0, minGap = 0, maxGap = 0, s;
   int tries = 0;
   for (;;) {
     if (++tries > 8) return;
@@ -381,8 +387,28 @@ void GpsDiscipline::tcxoPpsSample(uint32_t ppsCapTick, uint32_t gpsSec) {
     __sync_synchronize();
     cnt = tcxoCount;
     raw = tcxoRawPub;
+    lastGap = tcxoLastGapTicks;
+    minGap = tcxoMinGapTicks;
+    maxGap = tcxoMaxGapTicks;
     __sync_synchronize();
     if (tcxoSeq == s) break;
+  }
+  // Log the first 30 PPS intervals even when calibration is invalid. The
+  // count is independent of the divisor and distinguishes missing callbacks
+  // from a bad frequency calculation. Gaps are cumulative since boot.
+  if (tcxoDiagPpsPrevSec != 0 && gpsSec == tcxoDiagPpsPrevSec + 1 &&
+      tcxoDiagPpsSamples < 30) {
+    ESP_LOGI(TAG, "32k capture/PPS: events=%u last_gap=%u min_gap=%u max_gap=%u APB ticks",
+             (unsigned)(cnt - tcxoDiagPpsPrevCnt), (unsigned)lastGap,
+             (unsigned)minGap, (unsigned)maxGap);
+    tcxoDiagPpsSamples++;
+  }
+  tcxoDiagPpsPrevCnt = cnt;
+  tcxoDiagPpsPrevSec = gpsSec;
+  if (!tcxoRatioValid) {
+    tcxoPpsPrevValid = false;
+    tcxoFwValid = false;
+    return;
   }
   // ticks from newest 32k capture
   // bound: one capture period max
@@ -477,19 +503,23 @@ void GpsDiscipline::tcxoUpdate() {
       tcxoHoldoverGood = false;
       return;
     }
-    // integer cycles per event
+    // The configured prescaler must yield 256 input cycles per capture.
+    // Accepting any nearby integer can mistake lost callbacks for a valid
+    // oscillator ratio (for example, ~507 cycles/event at ~65 events/s).
     if (tcxoCyclesPerEvent == 0) {
       if (dCnt < 128) return;
       double kf = (double)(tick - baseTick) / (double)dCnt * 32768.0 / 80000000.0;
-      double kr = floor(kf + 0.5);
-      if (kr < 1 || kr > 2048 || fabs(kf - kr) > 0.25) {
-        ESP_LOGW(TAG, "32kHz event spacing not an integer cycle count (%.3f) — wrong signal?", kf);
+      if (fabs(kf - (double)kTcxoPrescale) > 0.25) {
+        ESP_LOGW(TAG, "32kHz capture spacing %.3f cycles/event (expected %u); rejecting TCXO reference",
+                 kf, (unsigned)kTcxoPrescale);
         tcxoRingN = 0;
+        tcxoRatioValid = false;
+        tcxoHoldoverGood = false;
         return;
       }
-      tcxoCyclesPerEvent = kr;
+      tcxoCyclesPerEvent = kTcxoPrescale;
       ESP_LOGI(TAG, "TCXO capture calibrated: %.0f cycles/event (%.1f events/s)",
-               kr, 32768.0 / kr);
+               tcxoCyclesPerEvent, 32768.0 / tcxoCyclesPerEvent);
     }
     double tcxoSec = (double)dCnt * tcxoCyclesPerEvent / 32768.0;
     double r = (double)(tick - baseTick) / tcxoSec;
