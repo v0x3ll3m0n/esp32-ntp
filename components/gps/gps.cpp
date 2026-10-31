@@ -342,6 +342,9 @@ esp_err_t GpsDiscipline::beginTcxoCapture(int gpio) {
   // falling edge; rising ramps slowly
   cfg.flags.pos_edge = 0;
   cfg.flags.neg_edge = 1;
+  ESP_LOGI(TAG, "TCXO capture config: IDF %d.%d.%d, driver prescale=%u, expected cycles/event=%u",
+           ESP_IDF_VERSION_MAJOR, ESP_IDF_VERSION_MINOR, ESP_IDF_VERSION_PATCH,
+           (unsigned)kTcxoDriverPrescale, (unsigned)kTcxoPrescale);
   // last channel, shared 80MHz counter
   esp_err_t err = mcpwm_new_capture_channel(capTimer, &cfg, &tcxoCapChannel);
   if (err != ESP_OK) return err;
