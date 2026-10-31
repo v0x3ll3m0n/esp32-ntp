@@ -58,11 +58,12 @@ static const double  kHoldoverDriftFloorPpmPerHour = 0.5; // never claim better 
 
 /* DS3231 TCXO holdover constants. */
 static const uint32_t kTcxoPrescale = 256;   // desired input cycles per capture
-// ESP-IDF through v6.0.3 writes (prescale - 1) to the MCPWM register, whose
-// actual same-edge divisor is twice that value. Espressif fixed the mapping
-// upstream after v6.0.3 (espressif/esp-idf@f9398bd). Ask for 129 on those
-// releases to obtain the same 256-cycle divisor as the fixed driver.
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 4)
+// ESP-IDF v6.0.2/6.0.3 and v6.1.0 write (prescale - 1) to the MCPWM register,
+// whose actual same-edge divisor is twice that value. Espressif fixed the
+// mapping upstream after these releases (espressif/esp-idf@f9398bd). Ask for
+// 129 on the affected releases to obtain the same 256-cycle divisor.
+#if (ESP_IDF_VERSION_MAJOR == 6 && ESP_IDF_VERSION_MINOR == 0 && ESP_IDF_VERSION_PATCH <= 3) || \
+    (ESP_IDF_VERSION_MAJOR == 6 && ESP_IDF_VERSION_MINOR == 1 && ESP_IDF_VERSION_PATCH == 0)
 static const uint32_t kTcxoDriverPrescale = kTcxoPrescale / 2 + 1;
 #else
 static const uint32_t kTcxoDriverPrescale = kTcxoPrescale;
